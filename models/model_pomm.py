@@ -126,6 +126,8 @@ class PommNet(NNBase):
         # assuming an 11x11 board and 3 non spatial features
         bs = 11
         self.other_shape = [3]
+        if obs_shape[0] != 1092:
+            bs = 6
         input_channels = (obs_shape[0] - self.other_shape[0]) // (bs*bs)
         self.image_shape = [input_channels, bs, bs]
         assert np.prod(obs_shape) >= np.prod(self.image_shape)

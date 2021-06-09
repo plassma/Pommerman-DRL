@@ -228,6 +228,8 @@ def make_env(config):
         env.set_agents(agent_list)
         #env.set_init_game_state(game_state_file)
         #env.set_render_mode(render_mode)
+    elif config == "GraphicOVOCompact-v0":
+        env = pommerman.make(config, agent_list[:2])
     else:
         env = pommerman.make(config, agent_list)
     env.set_training_agent(training_agent.agent_id)

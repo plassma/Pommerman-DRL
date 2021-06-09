@@ -12,6 +12,7 @@ from helpers.vec_env import VecEnvWrapper
 from helpers.vec_env.dummy_vec_env import DummyVecEnv
 from helpers.vec_env.subproc_vec_env import SubprocVecEnv
 from helpers.vec_env.vec_normalize import VecNormalize
+from envs.pommerman import PommermanEnvWrapper
 
 try:
     import dm_control2gym
@@ -34,10 +35,47 @@ except ImportError:
     pass
 
 
+from graphic_pomme_env import graphic_pomme_env
+from graphic_pomme_env.wrappers import PommerEnvWrapperFrameSkip2
+
+class RawObsEnvWrapper(gym.Wrapper):
+    def __init__(self, env=None):
+        super(RawObsEnvWrapper, self).__init__(env)
+        self._board_size = env._board_size
+        self.training_agent = env.training_agent
+
+    def step(self, actions):
+        state, reward, done, _ = self.env.step(actions)
+        state = self.env.get_last_step_raw()
+        return state, reward, done, {}
+
+    def get_observations(self):
+        return self.env.get_observations()
+
+    def act(self, obs):
+        return self.env.act(obs)
+
+    def reset(self):
+        self.env.reset()
+        return self.env.get_last_step_raw()
+
+
 def make_env(env_id, seed, rank, log_dir=None, add_timestep=False, allow_early_resets=False):
     def _thunk():
         if env_id.startswith("Pomme"):
             env = envs.pommerman.make_env(env_id)
+        elif env_id == 'GraphicOVOCompact-v0':
+            hacky = True
+            if hacky:
+                env = PommerEnvWrapperFrameSkip2(num_stack=5, start_pos=0, opponent_actor=None,
+                                     board='GraphicOVOCompact-v0')
+                # hacky af
+                env.reset()
+                env.env.training_agent = 0
+                env = RawObsEnvWrapper(env.env)
+                env = PommermanEnvWrapper(env)
+            else:
+                env = envs.pommerman.make_env(env_id)
         elif env_id.startswith("dm"):
             _, domain, task = env_id.split('.')
             env = dm_control2gym.make(domain_name=domain, task_name=task)
