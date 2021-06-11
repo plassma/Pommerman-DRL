@@ -33,10 +33,17 @@ def get_feature_channels(config):
 
 
 def get_unflat_obs_space(channels=15, board_size=11, rescale=True):
-    min_board_obs = np.zeros((channels, board_size, board_size))
-    max_board_obs = np.ones_like(min_board_obs)
-    min_other_obs = np.zeros(3)
-    max_other_obs = np.ones_like(min_other_obs)
+
+    if len(channels):
+        min_board_obs = np.zeros((channels[0], channels[1], channels[2]))
+        max_board_obs = np.ones_like(min_board_obs)
+        min_other_obs = np.zeros(0)
+        max_other_obs = np.ones_like(min_other_obs)
+    else:
+        min_board_obs = np.zeros((channels, board_size, board_size))
+        max_board_obs = np.ones_like(min_board_obs)
+        min_other_obs = np.zeros(3)
+        max_other_obs = np.ones_like(min_other_obs)
 
     if rescale:
         min_board_obs = _rescale(min_board_obs)
@@ -107,18 +114,20 @@ def featurize(obs, agent_id, config):
 
 
 class PommermanEnvWrapper(gym.Wrapper):
-    def __init__(self, env=None, feature_config=DEFAULT_FEATURE_CONFIG):
+    def __init__(self, env=None, feature_config=DEFAULT_FEATURE_CONFIG, obs_shape=None):
         super(PommermanEnvWrapper, self).__init__(env)
         self.feature_config = feature_config
-        if len(feature_config):
+        if feature_config and len(feature_config):
             self._set_observation_space(channels=get_feature_channels(feature_config))
+        else:
+            self._set_observation_space(obs_shape)
 
     def _set_observation_space(self, channels):
         # The observation space cannot contain multiple tensors due to compat issues
         # with the way storages, normalizers, etc work. Thus, easiest to flatten everything and restore
         # shape in NN model
         bs = self.env._board_size
-        obs_unflat = get_unflat_obs_space(channels, bs, self.feature_config['rescale'])
+        obs_unflat = get_unflat_obs_space(channels, bs, self.feature_config['rescale'] if self.feature_config else True)
         min_flat_obs = np.concatenate([obs_unflat.spaces[0].low.flatten(), obs_unflat.spaces[1].low])
         max_flat_obs = np.concatenate([obs_unflat.spaces[0].high.flatten(), obs_unflat.spaces[1].high])
 
@@ -130,29 +139,27 @@ class PommermanEnvWrapper(gym.Wrapper):
             random.seed(seed)
 
     def step(self, actions):
-        obs = self.env.get_observations()
-        all_actions = [actions]
-        all_actions += self.env.act(obs)
-        state, reward, done, _ = self.env.step(all_actions)
-        if not self.feature_config:
-            agent_state = self.env.featurize(state[self.env.training_agent])
-        else:
+        ret, opp_ret = self.env.step(actions)
+        state, reward, done, _ = ret
+        if self.feature_config:
             agent_state = featurize(
-                state[self.env.training_agent],
+                state,
                 self.env.training_agent,
-                    self.feature_config)
-        agent_reward = reward[self.env.training_agent]
-        return agent_state, agent_reward, done, {}
+                self.feature_config)
+        else:
+            agent_state = np.array(state).flatten()
+
+        return agent_state, reward, done, {}
 
     def reset(self):
         obs = self.env.reset()
-        if not self.feature_config:
-            agent_obs = self.env.featurize(obs[self.env.training_agent])
-        else:
+        if self.feature_config:
             agent_obs = featurize(
                 obs[self.env.training_agent],
                 self.env.training_agent,
                 self.feature_config)
+        else:
+            agent_obs = np.array(obs[self.env.training_agent]).flatten()
         return agent_obs
 
 

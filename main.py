@@ -81,6 +81,7 @@ def main():
             'batch_norm': False if args.algo == 'acktr' else True,
             'recurrent': args.recurrent_policy,
             'hidden_size': 512,
+            'cnn_config': 'conv5',
         },
         train=True)
 

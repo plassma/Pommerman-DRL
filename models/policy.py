@@ -28,8 +28,11 @@ class Policy(nn.Module):
         """Size of rnn_hx."""
         return self.nn.recurrent_hidden_state_size
 
-    def forward(self, inputs, rnn_hxs, masks):
-        raise NotImplementedError
+    def forward(self, inputs):
+        value, actor_features, rnn_hxs = self.nn(inputs, torch.zeros(0), torch.zeros(0))
+        logits = self.dist.linear(actor_features)
+
+        return logits
 
     def act(self, inputs, rnn_hxs, masks, deterministic=False):
         value, actor_features, rnn_hxs = self.nn(inputs, rnn_hxs, masks)
