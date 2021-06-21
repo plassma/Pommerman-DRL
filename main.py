@@ -15,6 +15,8 @@ from models import create_policy
 from rollout_storage import RolloutStorage
 from replay_storage import ReplayStorage
 from visualize import visdom_plot
+from datetime import timedelta
+from graphic_pomme_env.wrappers import PommerEnvWrapperFrameSkip2
 
 args = get_args()
 
@@ -140,6 +142,7 @@ def main():
     episode_rewards = deque(maxlen=10)
     
     start = time.time()
+    prev_end = start
     for j in range(num_updates):
         for step in range(args.num_steps):
             # Sample actions
@@ -208,7 +211,9 @@ def main():
                        np.median(episode_rewards),
                        np.min(episode_rewards),
                        np.max(episode_rewards), dist_entropy,
-                       value_loss, action_loss), end=', ' if other_metrics else '\n')
+                       value_loss, action_loss), end=', ')
+            print(f"eta {timedelta(seconds=(num_updates - j) / args.log_interval * (end - prev_end))}")
+            prev_end = end
             if 'sil_value_loss' in other_metrics:
                 print("SIL value/action loss {:.1f}/{:.1f}.".format(
                     other_metrics['sil_value_loss'],

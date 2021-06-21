@@ -65,12 +65,14 @@ def make_env(env_id, seed, rank, log_dir=None, add_timestep=False, allow_early_r
         if env_id.startswith("Pomme"):
             env = envs.pommerman.make_env(env_id)
         elif env_id == 'GraphicOVOCompact-v0':
-            env = PommerEnvWrapperFrameSkip2(num_stack=5, start_pos=0, opponent_actor=None,
+            start_pos = rank % 2
+            from curriculum import SmartRandomAgentNoBomb
+            env = PommerEnvWrapperFrameSkip2(num_stack=5, start_pos=start_pos, opponent_actor=None, opponent=SmartRandomAgentNoBomb(),
                                  board='GraphicOVOCompact-v0')
             # hacky af
             obs, opp_obs = env.reset()
-            env.training_agent = 0
-            env.env.training_agent = 0
+            env.training_agent = start_pos
+            env.env.training_agent = start_pos
             env.action_space = env.env.action_space
             env.observation_space = env.env.observation_space
             env.reward_range = env.env.reward_range
